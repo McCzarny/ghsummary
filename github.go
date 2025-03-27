@@ -76,12 +76,18 @@ func GetUserActivity(username string) (string, error) {
 	// Simplify activity data for LLM
 	activities := []Activity{}
 	for _, event := range events {
+		if len(activities) >= 10 {
+			log.Printf("Reached maximum number of activities to process")
+			break
+		}
+
 		id, ok := event["id"].(string)
 		if !ok {
 			log.Printf("Error parsing event ID")
 			continue
 		}
 		if eventType, ok := event["type"].(string); ok {
+			log.Printf("Processing event type: %s", eventType)
 			switch eventType {
 			case "IssueCommentEvent":
 				repo, err := GetRepositoryName(event)
@@ -89,7 +95,7 @@ func GetUserActivity(username string) (string, error) {
 					log.Printf("[%s] Error getting repository name", id)
 					continue
 				}
-				log.Printf("Processing IssueCommentEvent for repo: %s", repo)
+				log.Printf("[%s] Processing IssueCommentEvent for repo: %s", id, repo)
 				payload, ok := event["payload"].(map[string]interface{})
 				if !ok {
 					log.Printf("[%s] Error parsing payload data", id)
@@ -106,6 +112,51 @@ func GetUserActivity(username string) (string, error) {
 					Repository: repo,
 					Content:    content,
 				})
+			case "PushEvent":
+				repo, err := GetRepositoryName(event)
+				if err != nil {
+					log.Printf("[%s] Error getting repository name", id)
+					continue
+				}
+				log.Printf("[%s] Processing PushEvent for repo: %s", id, repo)
+				payload, ok := event["payload"].(map[string]interface{})
+				if !ok {
+					log.Printf("[%s] Error parsing payload data", id)
+					continue
+				}
+				commits, ok := payload["commits"].([]interface{})
+				if !ok {
+					log.Printf("[%s] Error parsing commits data", id)
+					continue
+				}
+				messages := ""
+				for _, commit := range commits {
+					commitData, ok := commit.(map[string]interface{})
+					if !ok {
+						log.Printf("[%s] Error parsing commit data", id)
+						continue
+					}
+					message, ok := commitData["message"].(string)
+					if !ok {
+						log.Printf("[%s] Error parsing commit message", id)
+						continue
+					}
+					messages += message + "\n"
+				}
+
+				if messages == "" {
+					log.Printf("[%s] No commit messages found", id)
+					continue
+				}
+
+				activities = append(activities, Activity{
+					Type:       eventType,
+					Repository: repo,
+					Content:    messages,
+				})
+
+			default:
+				log.Printf("[%s] Unsupported event type: %s", id, eventType)
 			}
 		}
 	}
