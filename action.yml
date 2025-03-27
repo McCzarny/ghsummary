@@ -22,6 +22,9 @@ runs:
   steps:
     - name: Checkout repository
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        repository: McCzarny/ghsummary
 
     - name: Set up Go
       uses: actions/setup-go@v5
@@ -30,7 +33,7 @@ runs:
 
     - name: Build the Go project
       shell: bash
-      run: go build -o ghsummary ./app
+      run: ls;  go build -o ghsummary ./app
 
     - name: Run the app
       env:
