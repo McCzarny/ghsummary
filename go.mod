@@ -1,6 +1,6 @@
 module github.com/McCzarny/ghsummary
 
-go 1.24.1
+go 1.23
 
 require google.golang.org/genai v0.6.0
 
