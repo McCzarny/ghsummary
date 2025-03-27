@@ -33,6 +33,8 @@ runs:
       run: go build -o ghsummary ./app
 
     - name: Run the app
+      env:
+        GEMINI_API_KEY: ${{ inputs.api_key }}
       run: |
         ./ghsummary --username "${{ inputs.username }}" --output "${{ inputs.output_path }}"
 
