@@ -1,0 +1,45 @@
+name: 'Generate GitHub Activity Summary'
+description: 'Generates an SVG file with GitHub activity summary that can be included in the profile.'
+author: 'Maciej Czarnecki'
+branding:
+  icon: 'terminal'
+  color: 'blue'
+
+inputs:
+  username:
+    description: 'Username of the GitHub account to generate the summary for.'
+    required: true
+  output_path:
+    description: 'Path to save the output file.'
+    required: false
+    default: './summary.svg'
+  api_key:
+    description: 'API key for GEMINI API as it is currently the only supported API.'
+    required: false
+    default: '${{ secrets.GEMINI_API_KEY }}'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.20'
+
+    - name: Build the Go project
+      run: go build -o ghsummary ./app
+
+    - name: Run the app
+      run: |
+        ./ghsummary --username "${{ inputs.username }}" --output "${{ inputs.output_path }}"
+
+    - name: Commit the output file
+      run: |
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+        git add "${{ inputs.output_path }}"
+        git commit -m "Update summary for ${{ inputs.username }}" || echo "No changes to commit"
+        git push
