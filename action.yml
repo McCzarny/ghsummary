@@ -25,6 +25,7 @@ runs:
       with:
         fetch-depth: 0
         repository: McCzarny/ghsummary
+        branch: development
 
     - name: Set up Go
       uses: actions/setup-go@v5
