@@ -26,6 +26,7 @@ runs:
         fetch-depth: 0
         repository: McCzarny/ghsummary
         ref: development
+        path: ghsummary_workdir
 
     - name: Set up Go
       uses: actions/setup-go@v5
@@ -34,14 +35,14 @@ runs:
 
     - name: Build the Go project
       shell: bash
-      run: ls;  go build -o ghsummary ./app
+      run: cd ghsummary_workdir;  go build -o ghsummary ./app
 
     - name: Run the app
       env:
         GEMINI_API_KEY: ${{ inputs.api_key }}
       shell: bash
       run: |
-        ./ghsummary --username "${{ inputs.username }}" --output "${{ inputs.output_path }}"
+        ghsummary_workdir/ghsummary --username "${{ inputs.username }}" --output "${{ inputs.output_path }}"
 
     - name: Commit the output file
       shell: bash
