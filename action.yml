@@ -20,13 +20,19 @@ inputs:
 runs:
   using: 'composite'
   steps:
-    - name: Checkout repository
+    - name: Checkout ghsummary repository
       uses: actions/checkout@v4
       with:
         fetch-depth: 0
         repository: McCzarny/ghsummary
         ref: development
         path: ghsummary_workdir
+
+    - name: Checkout caller repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        path: caller_workdir
 
     - name: Set up Go
       uses: actions/setup-go@v5
@@ -42,7 +48,7 @@ runs:
         GEMINI_API_KEY: ${{ inputs.api_key }}
       shell: bash
       run: |
-        ghsummary_workdir/ghsummary --username "${{ inputs.username }}" --output "${{ inputs.output_path }}"
+        ghsummary_workdir/ghsummary --username "${{ inputs.username }}" --output "caller_workdir/${{ inputs.output_path }}"
 
     - name: Commit the output file
       shell: bash
