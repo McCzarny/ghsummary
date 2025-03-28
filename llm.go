@@ -25,6 +25,15 @@ type GeminiResponse struct {
 	Summary string `json:"summary"`
 }
 
+// Constants for Gemini API
+const (
+	SystemPrompt = `Generate a brief, max 10 sentence summary of github activity of the user.
+	Go strait to the summary without explanation what it is.
+	User pronounces are to help build sentences, use pronounces only when needed, do not specify them in parenthesis.
+	The text will be saved in svg <text> element, so use formatting allowed there.
+	You can start with \"<Username> recently...\"`
+)
+
 func GenerateSummary(activity string) (string, error) {
 	apiKey := os.Getenv("GEMINI_API_KEY")
 	if apiKey == "" {
@@ -45,7 +54,7 @@ func GenerateSummary(activity string) (string, error) {
 		"gemini-2.0-flash-exp",
 		genai.Text(activity),
 		&genai.GenerateContentConfig{
-			SystemInstruction: &genai.Content{Parts: []*genai.Part{{Text: "Generate a brief, max 10 sentence summary of github activity of the user. Go strait to the summary without explanation what it is. User pronouces are to help build sentences, use pronouces only when needed, do not specify them in parentis. You can start with \"<Username> recently...\""}}},
+			SystemInstruction: &genai.Content{Parts: []*genai.Part{{Text: SystemPrompt}}},
 		},
 	)
 	log.Printf("Summary generation completed.")
