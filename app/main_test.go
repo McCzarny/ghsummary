@@ -1,4 +1,4 @@
-package ghsummary
+package main
 
 import (
 	"os"
@@ -7,7 +7,7 @@ import (
 
 func TestMainApp(t *testing.T) {
 	// Simulate command-line arguments
-	os.Args = []string{"app", "McCzarny"}
+	os.Args = []string{"app", "--username", "McCzarny"}
 
 	// Check if ./test directory exists
 	if _, err := os.Stat("./test"); os.IsNotExist(err) {

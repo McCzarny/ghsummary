@@ -50,9 +50,12 @@ func GetIssueCommentEventContent(payload map[string]interface{}) (string, error)
 	return "", fmt.Errorf("unsupported action: %s", action)
 }
 
-func GetUserActivity(username string) (string, error) {
-	log.Printf("Fetching activity for user: %s", username)
-	url := fmt.Sprintf("https://api.github.com/users/%s/events", username)
+func GetUserActivity(username string, maxEvents int) (string, error) {
+	maxEvents = min(maxEvents, 100) // Limit to 100 events. In the future I may want to add pagination.
+	log.Printf("Fetching activity for user: %s with max events: %d", username, maxEvents)
+	url := fmt.Sprintf("https://api.github.com/users/%s/events?per_page=%d", username, maxEvents)
+	log.Printf("Making HTTP GET request to URL: %s", url)
+	// Set up HTTP client with timeout
 	resp, err := http.Get(url)
 	if err != nil {
 		log.Printf("Error making HTTP request: %v", err)
@@ -76,12 +79,18 @@ func GetUserActivity(username string) (string, error) {
 	// Simplify activity data for LLM
 	activities := []Activity{}
 	for _, event := range events {
+		if len(activities) >= maxEvents {
+			log.Printf("Reached maximum number of activities to process: %d", maxEvents)
+			break
+		}
+
 		id, ok := event["id"].(string)
 		if !ok {
 			log.Printf("Error parsing event ID")
 			continue
 		}
 		if eventType, ok := event["type"].(string); ok {
+			log.Printf("Processing event type: %s", eventType)
 			switch eventType {
 			case "IssueCommentEvent":
 				repo, err := GetRepositoryName(event)
@@ -89,7 +98,7 @@ func GetUserActivity(username string) (string, error) {
 					log.Printf("[%s] Error getting repository name", id)
 					continue
 				}
-				log.Printf("Processing IssueCommentEvent for repo: %s", repo)
+				log.Printf("[%s] Processing IssueCommentEvent for repo: %s", id, repo)
 				payload, ok := event["payload"].(map[string]interface{})
 				if !ok {
 					log.Printf("[%s] Error parsing payload data", id)
@@ -106,6 +115,51 @@ func GetUserActivity(username string) (string, error) {
 					Repository: repo,
 					Content:    content,
 				})
+			case "PushEvent":
+				repo, err := GetRepositoryName(event)
+				if err != nil {
+					log.Printf("[%s] Error getting repository name", id)
+					continue
+				}
+				log.Printf("[%s] Processing PushEvent for repo: %s", id, repo)
+				payload, ok := event["payload"].(map[string]interface{})
+				if !ok {
+					log.Printf("[%s] Error parsing payload data", id)
+					continue
+				}
+				commits, ok := payload["commits"].([]interface{})
+				if !ok {
+					log.Printf("[%s] Error parsing commits data", id)
+					continue
+				}
+				messages := ""
+				for _, commit := range commits {
+					commitData, ok := commit.(map[string]interface{})
+					if !ok {
+						log.Printf("[%s] Error parsing commit data", id)
+						continue
+					}
+					message, ok := commitData["message"].(string)
+					if !ok {
+						log.Printf("[%s] Error parsing commit message", id)
+						continue
+					}
+					messages += message + "\n"
+				}
+
+				if messages == "" {
+					log.Printf("[%s] No commit messages found", id)
+					continue
+				}
+
+				activities = append(activities, Activity{
+					Type:       eventType,
+					Repository: repo,
+					Content:    messages,
+				})
+
+			default:
+				log.Printf("[%s] Unsupported event type: %s", id, eventType)
 			}
 		}
 	}

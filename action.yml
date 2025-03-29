@@ -1,0 +1,69 @@
+name: 'Generate GitHub Activity Summary'
+description: 'Generates an SVG file with GitHub activity summary that can be included in the profile.'
+author: 'Maciej Czarnecki'
+branding:
+  icon: 'terminal'
+  color: 'blue'
+
+inputs:
+  username:
+    description: 'Username of the GitHub account to generate the summary for.'
+    required: true
+  output_path:
+    description: 'Path to save the output file.'
+    required: false
+    default: './summary.svg'
+  max_events:
+    description: 'Maximum number of events to fetch from the API.'
+    required: false
+    default: '100'
+  api_key:
+    description: 'API key for GEMINI API as it is currently the only supported API.'
+    required: true
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Checkout ghsummary repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        repository: McCzarny/ghsummary
+        ref: development
+        path: ghsummary_workdir
+
+    - name: Checkout caller repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        path: caller_workdir
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.24'
+
+    - name: Build the Go project
+      shell: bash
+      run: cd ghsummary_workdir;  go build -o ghsummary ./app
+
+    - name: Run the app
+      env:
+        GEMINI_API_KEY: ${{ inputs.api_key }}
+        USERNAME: ${{ inputs.username }}
+        OUTPUT_PATH: ${{ inputs.output_path }}
+        MAX_EVENTS: ${{ inputs.max_events }}
+      shell: bash
+      run: |
+        ghsummary_workdir/ghsummary --username "$USERNAME" --output "caller_workdir/$OUTPUT_PATH" --max-events "$MAX_EVENTS"
+
+    - name: Commit the output file
+      shell: bash
+      run: |
+        cd caller_workdir
+        git pull
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+        git add "${{ inputs.output_path }}"
+        git commit -m "Update summary for ${{ inputs.username }}" || echo "No changes to commit"
+        git push
