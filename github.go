@@ -54,6 +54,8 @@ func GetUserActivity(username string, maxEvents int) (string, error) {
 	maxEvents = min(maxEvents, 100) // Limit to 100 events. In the future I may want to add pagination.
 	log.Printf("Fetching activity for user: %s with max events: %d", username, maxEvents)
 	url := fmt.Sprintf("https://api.github.com/users/%s/events?per_page=%d", username, maxEvents)
+	log.Printf("Making HTTP GET request to URL: %s", url)
+	// Set up HTTP client with timeout
 	resp, err := http.Get(url)
 	if err != nil {
 		log.Printf("Error making HTTP request: %v", err)
