@@ -21,6 +21,8 @@ func main() {
 		log.Fatalf("Usage: %s --username <username> --output <outputFile> --max-events <maxEvents>", os.Args[0])
 	}
 
+	log.Printf("Running app with username: %s, output file: %s, max events: %d", *username, *outputFile, *maxEvents)
+
 	// Fetch GitHub activity
 	activity, err := ghsummary.GetUserActivity(*username, *maxEvents)
 	if err != nil {
