@@ -50,9 +50,10 @@ func GetIssueCommentEventContent(payload map[string]interface{}) (string, error)
 	return "", fmt.Errorf("unsupported action: %s", action)
 }
 
-func GetUserActivity(username string) (string, error) {
-	log.Printf("Fetching activity for user: %s", username)
-	url := fmt.Sprintf("https://api.github.com/users/%s/events", username)
+func GetUserActivity(username string, maxEvents int) (string, error) {
+	maxEvents = min(maxEvents, 100) // Limit to 100 events. In the future I may want to add pagination.
+	log.Printf("Fetching activity for user: %s with max events: %d", username, maxEvents)
+	url := fmt.Sprintf("https://api.github.com/users/%s/events?per_page=%d", username, maxEvents)
 	resp, err := http.Get(url)
 	if err != nil {
 		log.Printf("Error making HTTP request: %v", err)
@@ -76,8 +77,8 @@ func GetUserActivity(username string) (string, error) {
 	// Simplify activity data for LLM
 	activities := []Activity{}
 	for _, event := range events {
-		if len(activities) >= 10 {
-			log.Printf("Reached maximum number of activities to process")
+		if len(activities) >= maxEvents {
+			log.Printf("Reached maximum number of activities to process: %d", maxEvents)
 			break
 		}
 

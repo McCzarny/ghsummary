@@ -13,6 +13,10 @@ inputs:
     description: 'Path to save the output file.'
     required: false
     default: './summary.svg'
+  max_events:
+    description: 'Maximum number of events to fetch from the API.'
+    required: false
+    default: '100'
   api_key:
     description: 'API key for GEMINI API as it is currently the only supported API.'
     required: true
@@ -48,9 +52,10 @@ runs:
         GEMINI_API_KEY: ${{ inputs.api_key }}
         USERNAME: ${{ inputs.username }}
         OUTPUT_PATH: ${{ inputs.output_path }}
+        MAX_EVENTS: ${{ inputs.max_events }}
       shell: bash
       run: |
-        ghsummary_workdir/ghsummary --username "$USERNAME" --output "caller_workdir/$OUTPUT_PATH"
+        ghsummary_workdir/ghsummary --username "$USERNAME" --output "caller_workdir/$OUTPUT_PATH" --max-events "$MAX_EVENTS"
 
     - name: Commit the output file
       shell: bash
