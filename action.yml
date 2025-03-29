@@ -46,9 +46,11 @@ runs:
     - name: Run the app
       env:
         GEMINI_API_KEY: ${{ inputs.api_key }}
+        USERNAME: ${{ inputs.username }}
+        OUTPUT_PATH: ${{ inputs.output_path }}
       shell: bash
       run: |
-        ghsummary_workdir/ghsummary --username "${{ inputs.username }}" --output "caller_workdir/${{ inputs.output_path }}"
+        ghsummary_workdir/ghsummary --username "$USERNAME" --output "caller_workdir/$OUTPUT_PATH"
 
     - name: Commit the output file
       shell: bash
