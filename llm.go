@@ -28,9 +28,9 @@ type GeminiResponse struct {
 // Constants for Gemini API
 const (
 	SystemPrompt = `Generate a brief, max 10 sentence summary of github activity of the user.
-	Go strait to the summary without explanation what it is.
+	Go strait to the summary without explanation what it is. Try to be concise and clear.
 	User pronounces are to help build sentences, use pronounces only when needed, do not specify them in parenthesis.
-	The text will be saved in svg <text> element, so do not use any special characters like <, >, & or backtick.
+	The text will be saved in svg <text> element, so do not use formatting at all. Just plain text.
 	You can start with \"<Username> recently...\"`
 )
 
@@ -51,7 +51,7 @@ func GenerateSummary(activity string) (string, error) {
 
 	log.Printf("Client created. Generating summary...")
 	result, err := client.Models.GenerateContent(ctx,
-		"gemini-2.0-flash-exp",
+		"gemini-2.0-flash-lite",
 		genai.Text(activity),
 		&genai.GenerateContentConfig{
 			SystemInstruction: &genai.Content{Parts: []*genai.Part{{Text: SystemPrompt}}},
