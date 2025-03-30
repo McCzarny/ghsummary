@@ -47,6 +47,12 @@ runs:
       shell: bash
       run: cd ghsummary_workdir;  go build -o ghsummary ./app
 
+    - name: Update caller repository
+      shell: bash
+      run: |
+        cd caller_workdir
+        git pull 
+
     - name: Run the app
       env:
         GEMINI_API_KEY: ${{ inputs.api_key }}
