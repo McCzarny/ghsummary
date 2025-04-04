@@ -1,8 +1,10 @@
 package ghsummary
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 )
@@ -78,6 +80,7 @@ func GetUserActivity(username string, maxEvents int) (string, error) {
 
 	// Simplify activity data for LLM
 	activities := []Activity{}
+	repositories := make(map[string]struct{})
 	for _, event := range events {
 		if len(activities) >= maxEvents {
 			log.Printf("Reached maximum number of activities to process: %d", maxEvents)
@@ -110,6 +113,10 @@ func GetUserActivity(username string, maxEvents int) (string, error) {
 					continue
 				}
 
+				if _, exists := repositories[repo]; !exists {
+					repositories[repo] = struct{}{}
+					log.Printf("[%s] Adding repository: %s", id, repo)
+				}
 				activities = append(activities, Activity{
 					Type:       eventType,
 					Repository: repo,
@@ -152,6 +159,10 @@ func GetUserActivity(username string, maxEvents int) (string, error) {
 					continue
 				}
 
+				if _, exists := repositories[repo]; !exists {
+					repositories[repo] = struct{}{}
+					log.Printf("[%s] Adding repository: %s", id, repo)
+				}
 				activities = append(activities, Activity{
 					Type:       eventType,
 					Repository: repo,
@@ -165,10 +176,50 @@ func GetUserActivity(username string, maxEvents int) (string, error) {
 	}
 	recentActivities := fmt.Sprintf("Recent activities for user %s:\n", username)
 	recentActivities += "User's pronounces: he/him\n"
+	recentActivities += "Information about the repositories:\n"
+	for repo := range repositories {
+		readmeURL := fmt.Sprintf("https://api.github.com/repos/%s/contents/README.md", repo)
+		resp, err := http.Get(readmeURL)
+		if err != nil {
+			log.Printf("Error fetching README.md for repo %s: %v", repo, err)
+			continue
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode == http.StatusOK {
+			response, err := ioutil.ReadAll(resp.Body)
+			if err != nil {
+				log.Printf("Error reading response body for repo %s: %v", repo, err)
+				continue
+			}
+
+			var readmeContent map[string]interface{}
+			if err := json.Unmarshal(response, &readmeContent); err != nil {
+				log.Printf("Error decoding JSON response for repo %s: %v", repo, err)
+				continue
+			}
+			content, ok := readmeContent["content"].(string)
+			if !ok {
+				log.Printf("Error parsing README.md content for repo %s", repo)
+				continue
+			}
+
+			// Decode the base64 content
+			decodedContent, err := base64.StdEncoding.DecodeString(content)
+			if err != nil {
+				log.Printf("Error decoding base64 content for repo %s: %v", repo, err)
+				continue
+			}
+
+			recentActivities += fmt.Sprintf("%s repository description:\n%s\n\n", repo, decodedContent)
+		} else {
+			log.Printf("No README.md found for repo %s", repo)
+		}
+	}
+
 	for _, activity := range activities {
 		recentActivities += fmt.Sprintf("Type: %s\nRepository: %s\nContent: %s\n\n", activity.Type, activity.Repository, activity.Content)
 	}
-
 	log.Printf("User: %s", username)
 	log.Printf("Recent activities:\n %s", recentActivities)
 	return recentActivities, nil
