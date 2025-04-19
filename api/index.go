@@ -38,7 +38,7 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Fetch GitHub activity
-	activity, err := ghsummary.GetUserActivity(username, max_events)
+	activity, err := ghsummary.GetUserActivity(username, max_events, "fast")
 	if err != nil {
 		log.Printf("Error fetching GitHub activity: %v", err)
 		http.Error(w, "Failed to fetch GitHub activity", http.StatusInternalServerError)
