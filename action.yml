@@ -20,6 +20,10 @@ inputs:
   api_key:
     description: 'API key for GEMINI API as it is currently the only supported API.'
     required: true
+  mode:
+    description: 'Mode of the summary. Can be "strict" or "fast".'
+    required: false
+    default: 'fast'
 
 runs:
   using: 'composite'
@@ -59,9 +63,10 @@ runs:
         USERNAME: ${{ inputs.username }}
         OUTPUT_PATH: ${{ inputs.output_path }}
         MAX_EVENTS: ${{ inputs.max_events }}
+        MODE: ${{ inputs.mode }}
       shell: bash
       run: |
-        ghsummary_workdir/ghsummary --username "$USERNAME" --output "caller_workdir/$OUTPUT_PATH" --max-events "$MAX_EVENTS"
+        ghsummary_workdir/ghsummary --username "$USERNAME" --output "caller_workdir/$OUTPUT_PATH" --max-events "$MAX_EVENTS" --mode "$MODE"
 
     - name: Commit the output file
       shell: bash

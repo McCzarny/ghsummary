@@ -3,6 +3,7 @@ package ghsummary
 import (
 	"fmt"
 	"os"
+	"time"
 )
 
 func GenerateSVGFile(text, outputPath string) error {
@@ -52,6 +53,12 @@ func GenerateSVG(text, outputPath string) (string, error) {
 		svgText += fmt.Sprintf(`<text x="10" y="%d" font-family="Courier" font-size="14" fill="gray">%s</text>`, y, line)
 		y += 20 // Increment y position for the next line
 	}
+
+	// Add a generation timestamp at the bottom
+	timestamp := time.Now().Format(time.ANSIC)
+	svgText += fmt.Sprintf(`<text x="%d" y="%d" text-anchor="end" font-family="Courier" font-size="10" fill="gray" fill-opacity="50%%">Generated on: %s</text>`, maxWidth-10, y, timestamp)
+	y += 20 // Increment y position for the timestamp
+
 	svgContent := fmt.Sprintf(`<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d">`, maxWidth, y)
 	svgContent += svgText
 	svgContent += `</svg>`

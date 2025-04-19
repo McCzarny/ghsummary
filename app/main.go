@@ -11,10 +11,12 @@ import (
 )
 
 func main() {
-	username := flag.String("username", "", "GitHub username")
-	outputFile := flag.String("output", "summary.svg", "Output SVG file")
-	maxEvents := flag.Int("max-events", 100, "Maximum number of events to fetch")
-	flag.Parse()
+	flagSet := flag.NewFlagSet("args", flag.ExitOnError)
+	username := flagSet.String("username", "", "GitHub username")
+	outputFile := flagSet.String("output", "summary.svg", "Output SVG file")
+	maxEvents := flagSet.Int("max-events", 100, "Maximum number of events to fetch")
+	mode := flagSet.String("mode", "fast", "Mode of operation (fast, strict)")
+	flagSet.Parse(os.Args[1:])
 
 	// Sanitize inputs
 	if !utils.SanitizeInputs(*username, *outputFile) {
@@ -24,7 +26,7 @@ func main() {
 	log.Printf("Running app with username: %s, output file: %s, max events: %d", *username, *outputFile, *maxEvents)
 
 	// Fetch GitHub activity
-	activity, err := ghsummary.GetUserActivity(*username, *maxEvents)
+	activity, err := ghsummary.GetUserActivity(*username, *maxEvents, *mode)
 	if err != nil {
 		log.Fatalf("Error fetching GitHub activity: %v", err)
 	}
