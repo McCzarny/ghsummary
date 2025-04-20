@@ -38,4 +38,10 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: test-summary
-        path: ./test/summary.svg
+        path: ./app/test/summary.svg
+
+    - name: Upload strict summary
+      uses: actions/upload-artifact@v4
+      with:
+        name: strict-test-summary
+        path: ./app/test/strict-summary.svg

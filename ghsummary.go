@@ -1,31 +1,30 @@
 package ghsummary
 
 import (
-	"fmt"
 	"log"
 )
 
-func GenerateSummarySVG(username string, max_events int) (string, error) {
+func GenerateSummarySVG(username string, max_events int, mode string) (string, bool) {
 	// Fetch GitHub activity
-	activity, err := GetUserActivity(username, max_events)
+	activity, err := GetUserActivity(username, max_events, mode)
 	if err != nil {
 		log.Printf("Error fetching GitHub activity: %v", err)
-		return "", fmt.Errorf("failed to fetch GitHub activity: %w", err)
+		return "", false
 	}
 
 	// Generate summary using LLM
 	summary, err := GenerateSummary(activity)
 	if err != nil {
 		log.Printf("Error generating summary: %v", err)
-		return "", fmt.Errorf("failed to generate summary: %w", err)
+		return "", false
 	}
 
 	// Generate SVG content
 	svgContent, err := GenerateSVG(summary, "")
 	if err != nil {
 		log.Printf("Error generating SVG: %v", err)
-		return "", fmt.Errorf("failed to generate SVG: %w", err)
+		return "", false
 	}
 
-	return svgContent, nil
+	return svgContent, true
 }
