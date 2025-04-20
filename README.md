@@ -25,16 +25,17 @@ https://github.com/McCzarny/McCzarny/blob/master/README.md?plain=1
 
 Run the application with the following command:
 ```shell
-go run app/main.go --username <github-username> [--output <output-path>] [--max-events <max-events>]
+go run app/main.go --username <github-username> [--output <output-path>] [--max-events <max-events>] [--mode <mode>] ]
 ```
 
 ## Action inputs
-| Input         | Description                                                      | Default              |
-|---------------|------------------------------------------------------------------|----------------------|
-| `username`    | GitHub username to fetch activity for                            | No default           |
-| `output_path` | Path to save the SVG file                                        | `github-summary.svg` |
-| `max-events`  | Maximum number of events to summarize                            | `100`                |
-| `api_key`     | API key for GEMINI API as it is currently the only supported API | `""`                 |
+| Input         | Description                                                           | Default              |
+|---------------|-----------------------------------------------------------------------|----------------------|
+| `username`    | GitHub username to fetch activity for                                 | No default           |
+| `output_path` | Path to save the SVG file                                             | `github-summary.svg` |
+| `max-events`  | Maximum number of events to summarize                                 | `100`                |
+| `api_key`     | API key for GEMINI API as it is currently the only supported API      | `""`                 |
+| `mode`        | 'fast' or 'strict'. Strict mode in addition looks into commit content | `fast`               |
 
 ## Example output
 
