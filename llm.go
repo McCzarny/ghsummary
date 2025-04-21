@@ -54,7 +54,7 @@ func GenerateSummary(activity string) (string, error) {
 
 	log.Printf("Client created. Generating summary...")
 	result, err := client.Models.GenerateContent(ctx,
-		"gemini-2.0-flash-lite",
+		"gemini-2.5-flash-preview-04-17",
 		genai.Text(activity),
 		&genai.GenerateContentConfig{
 			SystemInstruction: &genai.Content{Parts: []*genai.Part{{Text: fmt.Sprintf(SystemPromptSummary, Pronouns)}}},
