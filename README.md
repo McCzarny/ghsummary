@@ -36,6 +36,7 @@ go run app/main.go --username <github-username> [--output <output-path>] [--max-
 | `max-events`  | Maximum number of events to summarize                                 | `100`                |
 | `api_key`     | API key for GEMINI API as it is currently the only supported API      | `""`                 |
 | `mode`        | 'fast' or 'strict'. Strict mode in addition looks into commit content | `fast`               |
+| `pronouns`    | Pronouns to use for the user in the summary (e.g. he/him, she/her, they/them) | `he/him`             |
 
 ## Example output
 
