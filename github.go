@@ -136,6 +136,12 @@ func GetUserActivity(username string, maxEvents int, mode string) (string, error
 
 	if resp.StatusCode != http.StatusOK {
 		log.Printf("Non-OK HTTP status: %s", resp.Status)
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			log.Printf("Error reading response body: %v", err)
+		} else {
+			log.Printf("body: %s", body)
+		}
 		return "", fmt.Errorf("failed to fetch activity: %s", resp.Status)
 	}
 
