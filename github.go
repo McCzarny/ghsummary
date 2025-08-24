@@ -96,7 +96,7 @@ func GetCommitSummary(commit map[string]interface{}) (string, bool) {
 			}
 			patch, ok := fileData["patch"].(string)
 			if !ok {
-				log.Printf("Error parsing patch data for url: %s", url)
+				log.Printf("Error parsing patch data for url: %s and file: %s", url, filename)
 				continue
 			}
 			commitContentToSummarize += fmt.Sprintf("File: %s\nPatch:\n%s\n", filename, patch)
@@ -106,7 +106,7 @@ func GetCommitSummary(commit map[string]interface{}) (string, bool) {
 		return "", false
 	}
 
-	commit_summary, err := GenerateCommitSummary(commitContentToSummarize)
+	commit_summary, err := GenerateCommitSummary(commitContentToSummarize, 0)
 	if err != nil {
 		log.Printf("Error generating commit summary: %v", err)
 		return "", false

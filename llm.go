@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
+	"time"
 
 	"google.golang.org/genai"
 )
@@ -83,7 +85,7 @@ func GenerateSummary(activity string, pronouns ...string) (string, error) {
 	return summary, nil
 }
 
-func GenerateCommitSummary(content string) (string, error) {
+func GenerateCommitSummary(content string, attempt int) (string, error) {
 	apiKey := os.Getenv("GEMINI_API_KEY")
 
 	log.Printf("Generating commit summary...")
@@ -110,7 +112,19 @@ func GenerateCommitSummary(content string) (string, error) {
 	log.Printf("Commit summary generation completed.")
 
 	if err != nil {
-		log.Fatal(err)
+		// I would rather get a proper response structure, but I have what I have.
+		if strings.Contains(err.Error(), "PerMinute") {
+			if attempt >= 3 {
+				log.Printf("Rate limit exceeded. Giving up after %d attempts", attempt)
+				return "", err
+			}
+
+			log.Printf("Rate limit per minute exceeded. Retrying with attempt: %d after 1 minute", attempt+1)
+			time.Sleep(time.Minute)
+			return GenerateCommitSummary(content, attempt+1)
+		} else {
+			log.Fatal(err)
+		}
 	}
 
 	summary := ""
