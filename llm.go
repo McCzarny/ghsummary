@@ -114,7 +114,7 @@ func GenerateCommitSummary(content string, attempt int) (string, error) {
 	if err != nil {
 		// I would rather get a proper response structure, but I have what I have.
 		if strings.Contains(err.Error(), "PerMinute") {
-			if attempt >= 3 {
+			if attempt >= 5 {
 				log.Printf("Rate limit exceeded. Giving up after %d attempts", attempt)
 				return "", err
 			}

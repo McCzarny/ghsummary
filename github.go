@@ -54,9 +54,6 @@ func GetIssueCommentEventContent(payload map[string]interface{}) (string, error)
 }
 
 func GetCommitSummary(commit map[string]interface{}) (string, bool) {
-	// This function is a placeholder for generating commit summaries.
-	// In a real implementation, you would call an LLM or other service to generate the summary.
-	// For now, we'll just return the commit message as-is.
 	message, ok := commit["message"].(string)
 	if !ok {
 		return "", false
@@ -119,18 +116,16 @@ func GetCommitSummary(commit map[string]interface{}) (string, bool) {
 	return commit_summary, true
 }
 
-func GetUserActivity(username string, maxEvents int, mode string) (string, error) {
-	maxEvents = min(maxEvents, 100) // Limit to 100 events. In the future I may want to add pagination.
-	maxCommitSummary := 10          // Limit the number of commit summaries as they need to be additionally processed.
-	log.Printf("Fetching activity for user: %s with max events: %d in mode: %s", username, maxEvents, mode)
-	url := fmt.Sprintf("https://api.github.com/users/%s/events?per_page=%d", username, maxEvents)
+func GetEvents(username string, perPageEvents int, page int) ([]map[string]interface{}, error) {
+	log.Printf("Fetching %d events for %s user. Page %d", perPageEvents, username, page)
+	url := fmt.Sprintf("https://api.github.com/users/%s/events?per_page=%d&page=%d", username, perPageEvents, page)
 	log.Printf("Making HTTP GET request to URL: %s", url)
 
 	// Set up HTTP client with timeout
 	resp, err := http.Get(url)
 	if err != nil {
 		log.Printf("Error making HTTP request: %v", err)
-		return "", err
+		return nil, err
 	}
 	defer resp.Body.Close()
 
@@ -142,23 +137,28 @@ func GetUserActivity(username string, maxEvents int, mode string) (string, error
 		} else {
 			log.Printf("body: %s", body)
 		}
-		return "", fmt.Errorf("failed to fetch activity: %s", resp.Status)
+		return nil, fmt.Errorf("failed to fetch activity: %s", resp.Status)
 	}
 
 	var events []map[string]interface{}
 	if err := json.NewDecoder(resp.Body).Decode(&events); err != nil {
 		log.Printf("Error decoding JSON response: %v", err)
-		return "", err
+		return nil, err
 	}
 
-	log.Printf("Successfully fetched %d events", len(events))
+	return events, nil
+}
 
-	// Simplify activity data for LLM
-	activities := []Activity{}
-	repositories := make(map[string]struct{})
-	commitSummariesCount := 0
+func ProcessActivities(
+	events []map[string]interface{},
+	maxEvents int,
+	mode string,
+	maxCommitSummary int,
+	activities *[]Activity,
+	repositories *map[string]struct{},
+	commitSummariesCount *int) {
 	for _, event := range events {
-		if len(activities) >= maxEvents {
+		if len(*activities) >= maxEvents {
 			log.Printf("Reached maximum number of activities to process: %d", maxEvents)
 			break
 		}
@@ -189,11 +189,11 @@ func GetUserActivity(username string, maxEvents int, mode string) (string, error
 					continue
 				}
 
-				if _, exists := repositories[repo]; !exists {
-					repositories[repo] = struct{}{}
+				if _, exists := (*repositories)[repo]; !exists {
+					(*repositories)[repo] = struct{}{}
 					log.Printf("[%s] Adding repository: %s", id, repo)
 				}
-				activities = append(activities, Activity{
+				*activities = append(*activities, Activity{
 					Type:       eventType,
 					Repository: repo,
 					Content:    content,
@@ -228,7 +228,7 @@ func GetUserActivity(username string, maxEvents int, mode string) (string, error
 						continue
 					}
 
-					if strings.EqualFold(mode, "strict") && commitSummariesCount < maxCommitSummary {
+					if strings.EqualFold(mode, "strict") && *commitSummariesCount < maxCommitSummary {
 						commit_summary, ok := GetCommitSummary(commitData)
 						if !ok {
 							log.Printf("[%s] Error generating commit summary", id)
@@ -238,7 +238,7 @@ func GetUserActivity(username string, maxEvents int, mode string) (string, error
 
 						summary := fmt.Sprintf("Commit summary: %s", commit_summary)
 						messages += summary + "\n"
-						commitSummariesCount++
+						(*commitSummariesCount)++
 					} else {
 						messages += message + "\n"
 					}
@@ -249,11 +249,11 @@ func GetUserActivity(username string, maxEvents int, mode string) (string, error
 					continue
 				}
 
-				if _, exists := repositories[repo]; !exists {
-					repositories[repo] = struct{}{}
+				if _, exists := (*repositories)[repo]; !exists {
+					(*repositories)[repo] = struct{}{}
 					log.Printf("[%s] Adding repository: %s", id, repo)
 				}
-				activities = append(activities, Activity{
+				*activities = append(*activities, Activity{
 					Type:       eventType,
 					Repository: repo,
 					Content:    messages,
@@ -264,6 +264,35 @@ func GetUserActivity(username string, maxEvents int, mode string) (string, error
 			}
 		}
 	}
+}
+
+func GetUserActivity(username string, maxEvents int, mode string) (string, error) {
+	maxEvents = min(maxEvents, 100) // Limit to 100 events. In the future I may want to add pagination.
+	maxCommitSummary := 10          // Limit the number of commit summaries as they need to be additionally processed.
+	log.Printf("Fetching activity for user: %s with max events: %d in mode: %s", username, maxEvents, mode)
+	minActivityCount := 10
+	activities := []Activity{}
+	repositories := make(map[string]struct{})
+	commitSummariesCount := 0
+	currentPage := 1
+
+	// As of today 11.11.2025 GitHub limits the number of pages to 3 for this endpoint.
+	for len(activities) < minActivityCount && currentPage < 4 {
+		log.Printf("Fetching page %d of events for user: %s", currentPage, username)
+		log.Printf("Current number of activities: %d Minimal number for activities: %d", len(activities), minActivityCount)
+		events, err := GetEvents(username, maxEvents, currentPage)
+
+		if err != nil {
+			log.Printf("Error making HTTP request: %v", err)
+			return "", err
+		}
+
+		log.Printf("Successfully fetched %d events", len(events))
+
+		ProcessActivities(events, maxEvents, mode, maxCommitSummary, &activities, &repositories, &commitSummariesCount)
+		currentPage++
+	}
+
 	recentActivities := fmt.Sprintf("Recent activities for user %s:\n", username)
 	recentActivities += "Information about the repositories:\n"
 	for repo := range repositories {
