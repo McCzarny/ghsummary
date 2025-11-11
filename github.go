@@ -267,7 +267,7 @@ func ProcessActivities(
 }
 
 func GetUserActivity(username string, maxEvents int, mode string) (string, error) {
-	maxEvents = min(maxEvents, 100) // Limit to 100 events. In the future I may want to add pagination.
+	maxEvents = min(maxEvents, 100) // Limit to 100 events. Pagination is implemented below.
 	maxCommitSummary := 10          // Limit the number of commit summaries as they need to be additionally processed.
 	log.Printf("Fetching activity for user: %s with max events: %d in mode: %s", username, maxEvents, mode)
 	minActivityCount := 10
@@ -276,10 +276,10 @@ func GetUserActivity(username string, maxEvents int, mode string) (string, error
 	commitSummariesCount := 0
 	currentPage := 1
 
-	// As of today 11.11.2025 GitHub limits the number of pages to 3 for this endpoint.
-	for len(activities) < minActivityCount && currentPage < 4 {
+	const maxPagesAllowed = 4 // As of today 11.11.2025 GitHub limits the number of pages to 3 for this endpoint.
+	for len(activities) < minActivityCount && currentPage < maxPagesAllowed {
 		log.Printf("Fetching page %d of events for user: %s", currentPage, username)
-		log.Printf("Current number of activities: %d Minimal number for activities: %d", len(activities), minActivityCount)
+		log.Printf("Current number of activities: %d. Minimal number for activities: %d", len(activities), minActivityCount)
 		events, err := GetEvents(username, maxEvents, currentPage)
 
 		if err != nil {
