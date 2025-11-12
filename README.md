@@ -1,5 +1,10 @@
 # ghsummary
 
+> ⚠️ **Warning:**  
+> The GitHub API introduced breaking API changes without defining a separate version.
+> As a result, this project is currently non-functional until further updates are made to accommodate these changes.
+> Related discussion: https://github.com/orgs/community/discussions/177111
+
 `ghsummary` is a Go-based application that fetches and summarizes GitHub user activity. It provides a simplified view of recent activities for a given GitHub username.
 
 ## GitHub action
