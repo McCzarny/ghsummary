@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 )
 
@@ -14,6 +15,23 @@ type Activity struct {
 	Type       string
 	Repository string
 	Content    string
+}
+
+// makeGitHubRequest creates an HTTP GET request with GitHub token authentication if available
+func makeGitHubRequest(url string) (*http.Response, error) {
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	// Add GitHub token if available
+	if token := os.Getenv("GITHUB_TOKEN"); token != "" {
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
+		log.Printf("Using GitHub token for authentication")
+	}
+
+	client := &http.Client{}
+	return client.Do(req)
 }
 
 func GetRepositoryName(event map[string]interface{}) (string, error) {
@@ -53,6 +71,38 @@ func GetIssueCommentEventContent(payload map[string]interface{}) (string, error)
 	return "", fmt.Errorf("unsupported action: %s", action)
 }
 
+func GetPushEventCommits(repo string, before string, after string) ([]interface{}, error) {
+	// Use GitHub's compare API to fetch commits between two SHAs
+	url := fmt.Sprintf("https://api.github.com/repos/%s/compare/%s...%s", repo, before, after)
+	log.Printf("Fetching commits from compare API: %s", url)
+
+	resp, err := makeGitHubRequest(url)
+	if err != nil {
+		log.Printf("Error making HTTP request: %v", err)
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		log.Printf("Non-OK HTTP status: %s", resp.Status)
+		return nil, fmt.Errorf("failed to fetch commits: %s", resp.Status)
+	}
+
+	var compareData map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&compareData); err != nil {
+		log.Printf("Error decoding JSON response: %v", err)
+		return nil, err
+	}
+
+	commits, ok := compareData["commits"].([]interface{})
+	if !ok {
+		log.Printf("Error parsing commits data from compare API")
+		return nil, fmt.Errorf("error parsing commits data")
+	}
+
+	return commits, nil
+}
+
 func GetCommitSummary(commit map[string]interface{}) (string, bool) {
 	message, ok := commit["message"].(string)
 	if !ok {
@@ -62,7 +112,7 @@ func GetCommitSummary(commit map[string]interface{}) (string, bool) {
 	if !ok {
 		return "", false
 	}
-	resp, err := http.Get(url)
+	resp, err := makeGitHubRequest(url)
 	if err != nil {
 		log.Printf("Error making HTTP request: %v", err)
 		return "", false
@@ -122,7 +172,7 @@ func GetEvents(username string, perPageEvents int, page int) ([]map[string]inter
 	log.Printf("Making HTTP GET request to URL: %s", url)
 
 	// Set up HTTP client with timeout
-	resp, err := http.Get(url)
+	resp, err := makeGitHubRequest(url)
 	if err != nil {
 		log.Printf("Error making HTTP request: %v", err)
 		return nil, err
@@ -210,11 +260,26 @@ func ProcessActivities(
 					log.Printf("[%s] Error parsing payload data", id)
 					continue
 				}
-				commits, ok := payload["commits"].([]interface{})
+
+				// Get before and after SHAs from the payload
+				before, ok := payload["before"].(string)
 				if !ok {
-					log.Printf("[%s] Error parsing commits data", id)
+					log.Printf("[%s] Error parsing 'before' SHA", id)
 					continue
 				}
+				after, ok := payload["head"].(string)
+				if !ok {
+					log.Printf("[%s] Error parsing 'head' SHA", id)
+					continue
+				}
+
+				// Fetch commits using the compare API
+				commits, err := GetPushEventCommits(repo, before, after)
+				if err != nil {
+					log.Printf("[%s] Error fetching commits from compare API: %v", id, err)
+					continue
+				}
+
 				messages := ""
 				for _, commit := range commits {
 					commitData, ok := commit.(map[string]interface{})
@@ -222,14 +287,26 @@ func ProcessActivities(
 						log.Printf("[%s] Error parsing commit data", id)
 						continue
 					}
-					message, ok := commitData["message"].(string)
+
+					// Extract message from commit.commit.message structure
+					commitInfo, ok := commitData["commit"].(map[string]interface{})
+					if !ok {
+						log.Printf("[%s] Error parsing commit info", id)
+						continue
+					}
+					message, ok := commitInfo["message"].(string)
 					if !ok {
 						log.Printf("[%s] Error parsing commit message", id)
 						continue
 					}
 
 					if strings.EqualFold(mode, "strict") && *commitSummariesCount < maxCommitSummary {
-						commit_summary, ok := GetCommitSummary(commitData)
+						// For strict mode, we need to create a compatible structure for GetCommitSummary
+						commitForSummary := map[string]interface{}{
+							"message": message,
+							"url":     commitData["url"],
+						}
+						commit_summary, ok := GetCommitSummary(commitForSummary)
 						if !ok {
 							log.Printf("[%s] Error generating commit summary", id)
 							messages += message + "\n"
@@ -297,7 +374,7 @@ func GetUserActivity(username string, maxEvents int, mode string) (string, error
 	recentActivities += "Information about the repositories:\n"
 	for repo := range repositories {
 		readmeURL := fmt.Sprintf("https://api.github.com/repos/%s/contents/README.md", repo)
-		resp, err := http.Get(readmeURL)
+		resp, err := makeGitHubRequest(readmeURL)
 		if err != nil {
 			log.Printf("Error fetching README.md for repo %s: %v", repo, err)
 			continue

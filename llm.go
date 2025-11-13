@@ -39,6 +39,11 @@ Focus on key actions like commits, pull requests, and issues. Avoid any introduc
 )
 
 func GenerateSummary(activity string, pronouns ...string) (string, error) {
+	return GenerateSummaryWithRetry(activity, 0, pronouns...)
+}
+
+func GenerateSummaryWithRetry(activity string, attempt int, pronouns ...string) (string, error) {
+	const maxRetries = 5
 	// If pronouns are provided, use them; otherwise default to "he/him"
 	pronounValue := "he/him"
 	if len(pronouns) > 0 && pronouns[0] != "" {
@@ -58,7 +63,7 @@ func GenerateSummary(activity string, pronouns ...string) (string, error) {
 		log.Fatal(err)
 	}
 
-	log.Printf("Client created. Generating summary...")
+	log.Printf("Client created. Generating summary... (attempt %d)", attempt+1)
 	result, err := client.Models.GenerateContent(ctx,
 		"gemini-2.5-flash",
 		genai.Text(activity),
@@ -69,6 +74,22 @@ func GenerateSummary(activity string, pronouns ...string) (string, error) {
 	log.Printf("Summary generation completed.")
 
 	if err != nil {
+		// Check for server overload (503) or rate limit errors
+		errMsg := err.Error()
+		isOverloaded := strings.Contains(errMsg, "503") || strings.Contains(errMsg, "overloaded")
+		isRateLimit := strings.Contains(errMsg, "PerMinute")
+
+		if (isOverloaded || isRateLimit) && attempt < maxRetries {
+			// Exponential backoff: 2^attempt seconds (32s, 64s, 128s, 256s, 512s)
+			waitDuration := time.Duration(1<<uint(attempt)) * 32 * time.Second
+			if isRateLimit {
+				// For rate limits, wait at least 1 minute
+				waitDuration = time.Minute
+			}
+			log.Printf("Error: %s. Retrying attempt %d/%d after %v", errMsg, attempt+1, maxRetries, waitDuration)
+			time.Sleep(waitDuration)
+			return GenerateSummaryWithRetry(activity, attempt+1, pronouns...)
+		}
 		log.Fatal(err)
 	}
 
@@ -86,9 +107,10 @@ func GenerateSummary(activity string, pronouns ...string) (string, error) {
 }
 
 func GenerateCommitSummary(content string, attempt int) (string, error) {
+	const maxRetries = 5
 	apiKey := os.Getenv("GEMINI_API_KEY")
 
-	log.Printf("Generating commit summary...")
+	log.Printf("Generating commit summary... (attempt %d)", attempt+1)
 	if apiKey == "" {
 		return "", errors.New("GEMINI_API_KEY is not set in the environment")
 	}
@@ -112,19 +134,22 @@ func GenerateCommitSummary(content string, attempt int) (string, error) {
 	log.Printf("Commit summary generation completed.")
 
 	if err != nil {
-		// I would rather get a proper response structure, but I have what I have.
-		if strings.Contains(err.Error(), "PerMinute") {
-			if attempt >= 5 {
-				log.Printf("Rate limit exceeded. Giving up after %d attempts", attempt)
-				return "", err
-			}
+		errMsg := err.Error()
+		isOverloaded := strings.Contains(errMsg, "503") || strings.Contains(errMsg, "overloaded")
+		isRateLimit := strings.Contains(errMsg, "PerMinute")
 
-			log.Printf("Rate limit per minute exceeded. Retrying with attempt: %d after 1 minute", attempt+1)
-			time.Sleep(time.Minute)
+		if (isOverloaded || isRateLimit) && attempt < maxRetries {
+			// Exponential backoff: 2^attempt seconds (2s, 4s, 8s, 16s, 32s)
+			waitDuration := time.Duration(1<<uint(attempt)) * 2 * time.Second
+			if isRateLimit {
+				// For rate limits, wait at least 1 minute
+				waitDuration = time.Minute
+			}
+			log.Printf("Error: %s. Retrying attempt %d/%d after %v", errMsg, attempt+1, maxRetries, waitDuration)
+			time.Sleep(waitDuration)
 			return GenerateCommitSummary(content, attempt+1)
-		} else {
-			log.Fatal(err)
 		}
+		log.Fatal(err)
 	}
 
 	summary := ""
