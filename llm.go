@@ -65,7 +65,7 @@ func GenerateSummaryWithRetry(activity string, attempt int, pronouns ...string) 
 
 	log.Printf("Client created. Generating summary... (attempt %d)", attempt+1)
 	result, err := client.Models.GenerateContent(ctx,
-		"gemini-2.5-flash",
+		"gemini-3.6-flash",
 		genai.Text(activity),
 		&genai.GenerateContentConfig{
 			SystemInstruction: &genai.Content{Parts: []*genai.Part{{Text: fmt.Sprintf(SystemPromptSummary, pronounValue)}}},
@@ -125,7 +125,7 @@ func GenerateCommitSummary(content string, attempt int) (string, error) {
 	}
 
 	result, err := client.Models.GenerateContent(ctx,
-		"gemini-2.5-flash-lite",
+		"gemini-3.5-flash-lite",
 		genai.Text(content),
 		&genai.GenerateContentConfig{
 			SystemInstruction: &genai.Content{Parts: []*genai.Part{{Text: SystemPromptSummaryCommit}}},
